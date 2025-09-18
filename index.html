@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mi Centro de Estudios</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --background: #F8F7F4;
+            --foreground: #FFFFFF;
+            --card: #FFFFFF;
+            --text-primary: #333333;
+            --text-secondary: #6B7280;
+            --border: #E5E7EB;
+            --primary: #2563EB;
+            --primary-foreground: #FFFFFF;
+            --accent: #E9E8E5;
+            --danger: #EF4444;
+        }
+
+        [data-theme="dark"] {
+            --background: #111827;
+            --foreground: #1F2937;
+            --card: #1F2937;
+            --text-primary: #F9FAFB;
+            --text-secondary: #9CA3AF;
+            --border: #374151;
+            --primary: #3B82F6;
+            --primary-foreground: #FFFFFF;
+            --accent: #374151;
+            --danger: #F87171;
+        }
+
+        [data-theme="ocean"] {
+            --background: #EFF6FF;
+            --foreground: #FFFFFF;
+            --card: #FFFFFF;
+            --text-primary: #1E3A8A;
+            --text-secondary: #3B82F6;
+            --border: #BFDBFE;
+            --primary: #1D4ED8;
+            --primary-foreground: #FFFFFF;
+            --accent: #DBEAFE;
+            --danger: #FB7185;
+        }
+
+        [data-theme="forest"] {
+            --background: #F0FFF4;
+            --foreground: #FFFFFF;
+            --card: #FFFFFF;
+            --text-primary: #14532D;
+            --text-secondary: #16A34A;
+            --border: #BBF7D0;
+            --primary: #15803D;
+            --primary-foreground: #FFFFFF;
+            --accent: #D1FAE5;
+            --danger: #FB7185;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--background);
+            color: var(--text-primary);
+        }
+        .nav-item {
+            transition: all 0.2s ease-in-out;
+        }
+        .nav-item.active, .nav-item:hover {
+            background-color: var(--accent);
+            color: var(--primary);
+        }
+        .task-item.completed {
+            text-decoration: line-through;
+            opacity: 0.6;
+        }
+        .calendar-grid {
+            grid-template-columns: repeat(7, minmax(0, 1fr));
+        }
+        .calendar-day.has-event {
+            background-color: var(--accent);
+            font-weight: bold;
+            color: var(--primary);
+        }
+        .modal {
+            display: none;
+        }
+        .modal.is-open {
+            display: flex;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 400px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+            max-height: 400px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 350px;
+            }
+        }
+    </style>
+    <!-- Chosen Palette: Calm Neutrals -->
+    <!-- Application Structure Plan: Se ha diseñado una SPA con navegación por pestañas (Panel, Tareas, Calendario, Calificaciones, Análisis). Esta estructura es intuitiva para un estudiante, ya que separa las funcionalidades principales en secciones lógicas y dedicadas. El "Panel" actúa como un dashboard de vista rápida para información urgente (tareas próximas, siguiente examen), proporcionando valor inmediato. Las otras secciones permiten una gestión detallada. Este enfoque modular facilita el uso y la futura expansión de la aplicación para añadir funcionalidades rentables. -->
+    <!-- Visualization & Content Choices: 1. Panel: Listas y tarjetas (HTML/Tailwind) para un resumen rápido. Objetivo: Informar. 2. Tareas: Lista interactiva (HTML/JS) para gestión completa. Objetivo: Organizar. 3. Calendario: Rejilla HTML/CSS/JS para visualización de fechas. Objetivo: Organizar en el tiempo. 4. Calificaciones: Acordeón y tablas (HTML/JS) para seguimiento detallado y cálculo de promedios. Objetivo: Informar y seguir progreso. 5. Análisis: Gráfico de dona (Chart.js/Canvas) para ver la distribución de notas. Objetivo: Analizar. Todas las interacciones se manejan con JS para una experiencia fluida y dinámica. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+</head>
+<body class="flex flex-col md:flex-row h-screen bg-[var(--background)] text-[var(--text-primary)]">
+
+    <nav class="w-full md:w-64 bg-[var(--foreground)] border-b md:border-r border-[var(--border)] flex-shrink-0">
+        <div class="flex items-center justify-between p-4 h-16">
+            <h1 class="text-xl font-bold text-[var(--primary)]">EstudioPro</h1>
+            <button id="mobile-menu-button" class="md:hidden p-2 rounded-md hover:bg-[var(--accent)]">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" />
+                </svg>
+            </button>
+        </div>
+        <div id="nav-menu" class="hidden md:flex flex-col justify-between h-full md:h-auto pb-4 md:pb-0">
+            <div class="p-2 space-y-1">
+                <a href="#" data-section="panel" class="nav-item active flex items-center gap-3 p-3 rounded-lg font-medium"><span>📊</span> Panel Principal</a>
+                <a href="#" data-section="tareas" class="nav-item flex items-center gap-3 p-3 rounded-lg font-medium"><span>📝</span> Tareas</a>
+                <a href="#" data-section="calendario" class="nav-item flex items-center gap-3 p-3 rounded-lg font-medium"><span>📅</span> Calendario</a>
+                <a href="#" data-section="calificaciones" class="nav-item flex items-center gap-3 p-3 rounded-lg font-medium"><span>🎓</span> Calificaciones</a>
+                <a href="#" data-section="analisis" class="nav-item flex items-center gap-3 p-3 rounded-lg font-medium"><span>📈</span> Análisis</a>
+            </div>
+            <div class="p-4 mt-auto">
+                <h4 class="text-sm font-semibold text-[var(--text-secondary)] mb-2">Temas</h4>
+                <div class="flex justify-around">
+                    <button class="theme-btn h-8 w-8 rounded-full bg-[#F8F7F4] border-2 border-[var(--border)]" data-theme="light" title="Claro"></button>
+                    <button class="theme-btn h-8 w-8 rounded-full bg-[#111827] border-2 border-[var(--border)]" data-theme="dark" title="Oscuro"></button>
+                    <button class="theme-btn h-8 w-8 rounded-full bg-[#EFF6FF] border-2 border-[var(--border)]" data-theme="ocean" title="Océano"></button>
+                    <button class="theme-btn h-8 w-8 rounded-full bg-[#F0FFF4] border-2 border-[var(--border)]" data-theme="forest" title="Bosque"></button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+        <!-- Panel Principal -->
+        <section id="panel" class="content-section">
+            <h2 class="text-3xl font-bold mb-6">Panel Principal</h2>
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-2 bg-[var(--card)] p-6 rounded-xl shadow-sm border border-[var(--border)]">
+                    <h3 class="text-xl font-semibold mb-4">Tareas Próximas</h3>
+                    <p class="text-sm text-[var(--text-secondary)] mb-4">Aquí tienes un vistazo rápido de las tareas que vencen pronto. Mantente al día para no perder ninguna fecha de entrega importante.</p>
+                    <div id="upcoming-tasks-list" class="space-y-3"></div>
+                </div>
+                <div class="space-y-6">
+                    <div class="bg-[var(--card)] p-6 rounded-xl shadow-sm border border-[var(--border)]">
+                        <h3 class="text-xl font-semibold mb-2">Siguiente Examen</h3>
+                        <div id="next-exam-info"></div>
+                    </div>
+                    <div class="bg-[var(--card)] p-6 rounded-xl shadow-sm border border-[var(--border)]">
+                        <h3 class="text-xl font-semibold mb-2">Promedio General</h3>
+                        <p id="general-average" class="text-4xl font-bold text-[var(--primary)]"></p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Tareas -->
+        <section id="tareas" class="content-section hidden">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                <div>
+                    <h2 class="text-3xl font-bold">Gestor de Tareas</h2>
+                    <p class="text-md text-[var(--text-secondary)] mt-1 max-w-2xl">Organiza todas tus tareas y proyectos en un solo lugar. Añade nuevas tareas, márcalas como completadas y elimina las que ya no necesites. Un buen sistema de gestión es clave para el éxito académico.</p>
+                </div>
+                <button id="add-task-btn" class="bg-[var(--primary)] text-[var(--primary-foreground)] font-bold py-2 px-4 rounded-lg hover:opacity-90 transition w-full sm:w-auto">Añadir Tarea</button>
+            </div>
+            <div id="task-list" class="bg-[var(--card)] p-6 rounded-xl shadow-sm border border-[var(--border)]"></div>
+        </section>
+
+        <!-- Calendario -->
+        <section id="calendario" class="content-section hidden">
+             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                <div>
+                    <h2 class="text-3xl font-bold">Calendario Académico</h2>
+                    <p class="text-md text-[var(--text-secondary)] mt-1 max-w-2xl">Visualiza tus fechas importantes como exámenes y entregas de proyectos. Utiliza los controles para navegar entre meses y haz clic en un día para ver o añadir eventos.</p>
+                </div>
+                <button id="add-event-btn" class="bg-[var(--primary)] text-[var(--primary-foreground)] font-bold py-2 px-4 rounded-lg hover:opacity-90 transition w-full sm:w-auto">Añadir Evento</button>
+            </div>
+            <div class="bg-[var(--card)] p-6 rounded-xl shadow-sm border border-[var(--border)]">
+                <div class="flex justify-between items-center mb-4">
+                    <button id="prev-month" class="p-2 rounded-full hover:bg-[var(--accent)]">◀</button>
+                    <h3 id="month-year" class="text-xl font-semibold"></h3>
+                    <button id="next-month" class="p-2 rounded-full hover:bg-[var(--accent)]">▶</button>
+                </div>
+                <div class="grid calendar-grid font-semibold text-center text-[var(--text-secondary)] mb-2">
+                    <div>Do</div><div>Lu</div><div>Ma</div><div>Mi</div><div>Ju</div><div>Vi</div><div>Sá</div>
+                </div>
+                <div id="calendar-body" class="grid calendar-grid gap-1"></div>
+            </div>
+        </section>
+
+        <!-- Calificaciones -->
+        <section id="calificaciones" class="content-section hidden">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                <div>
+                    <h2 class="text-3xl font-bold">Registro de Calificaciones</h2>
+                    <p class="text-md text-[var(--text-secondary)] mt-1 max-w-2xl">Lleva un control detallado de tus notas por asignatura. La aplicación calculará automáticamente tu promedio en cada una, ayudándote a visualizar tu rendimiento y a enfocarte donde más lo necesites.</p>
+                </div>
+                <button id="add-subject-btn" class="bg-[var(--primary)] text-[var(--primary-foreground)] font-bold py-2 px-4 rounded-lg hover:opacity-90 transition w-full sm:w-auto">Añadir Asignatura</button>
+            </div>
+            <div id="subjects-container" class="space-y-4"></div>
+        </section>
+
+        <!-- Análisis -->
+        <section id="analisis" class="content-section hidden">
+            <h2 class="text-3xl font-bold mb-6">Análisis de Rendimiento</h2>
+            <p class="text-md text-[var(--text-secondary)] mb-6 max-w-3xl">Esta sección te ofrece una visión gráfica de tu progreso. El siguiente gráfico muestra cómo se distribuyen tus calificaciones, permitiéndote identificar patrones y áreas de mejora de un solo vistazo. A medida que añadas más notas, este análisis se volverá más potente.</p>
+            <div class="bg-[var(--card)] p-6 rounded-xl shadow-sm border border-[var(--border)]">
+                 <div class="chart-container">
+                    <canvas id="gradesChart"></canvas>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Modal para Tareas -->
+    <div id="task-modal" class="modal fixed inset-0 bg-black bg-opacity-50 items-center justify-center p-4 z-50">
+        <div class="bg-[var(--card)] rounded-xl shadow-xl p-6 w-full max-w-md border border-[var(--border)]">
+            <h3 id="task-modal-title" class="text-2xl font-bold mb-4"></h3>
+            <form id="task-form">
+                <input type="hidden" id="task-id">
+                <div class="mb-4">
+                    <label for="task-name" class="block text-sm font-medium text-[var(--text-secondary)]">Nombre de la Tarea</label>
+                    <input type="text" id="task-name" class="mt-1 block w-full border border-[var(--border)] rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-[var(--primary)] focus:border-[var(--primary)] bg-[var(--foreground)]" required>
+                </div>
+                <div class="mb-4">
+                    <label for="task-subject" class="block text-sm font-medium text-[var(--text-secondary)]">Asignatura</label>
+                    <input type="text" id="task-subject" class="mt-1 block w-full border border-[var(--border)] rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-[var(--primary)] focus:border-[var(--primary)] bg-[var(--foreground)]" required>
+                </div>
+                <div class="mb-4">
+                    <label for="task-due-date" class="block text-sm font-medium text-[var(--text-secondary)]">Fecha de Entrega</label>
+                    <input type="date" id="task-due-date" class="mt-1 block w-full border border-[var(--border)] rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-[var(--primary)] focus:border-[var(--primary)] bg-[var(--foreground)]" required>
+                </div>
+                <div class="flex justify-end gap-3 mt-6">
+                    <button type="button" id="cancel-task-btn" class="bg-transparent border border-[var(--border)] text-[var(--text-primary)] font-bold py-2 px-4 rounded-lg hover:bg-[var(--accent)]">Cancelar</button>
+                    <button type="submit" class="bg-[var(--primary)] text-[var(--primary-foreground)] font-bold py-2 px-4 rounded-lg hover:opacity-90">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal para Eventos -->
+    <div id="event-modal" class="modal fixed inset-0 bg-black bg-opacity-50 items-center justify-center p-4 z-50">
+        <div class="bg-[var(--card)] rounded-xl shadow-xl p-6 w-full max-w-md border border-[var(--border)]">
+            <h3 class="text-2xl font-bold mb-4">Añadir Evento</h3>
+            <form id="event-form">
+                 <div class="mb-4">
+                    <label for="event-title" class="block text-sm font-medium text-[var(--text-secondary)]">Título del Evento</label>
+                    <input type="text" id="event-title" class="mt-1 block w-full border border-[var(--border)] rounded-md shadow-sm py-2 px-3 bg-[var(--foreground)]" required>
+                </div>
+                <div class="mb-4">
+                    <label for="event-date" class="block text-sm font-medium text-[var(--text-secondary)]">Fecha</label>
+                    <input type="date" id="event-date" class="mt-1 block w-full border border-[var(--border)] rounded-md shadow-sm py-2 px-3 bg-[var(--foreground)]" required>
+                </div>
+                <div class="mb-4">
+                    <label for="event-type" class="block text-sm font-medium text-[var(--text-secondary)]">Tipo</label>
+                    <select id="event-type" class="mt-1 block w-full border border-[var(--border)] rounded-md shadow-sm py-2 px-3 bg-[var(--foreground)]">
+                        <option value="examen">Examen</option>
+                        <option value="entrega">Entrega</option>
+                        <option value="recordatorio">Recordatorio</option>
+                    </select>
+                </div>
+                 <div class="flex justify-end gap-3 mt-6">
+                    <button type="button" id="cancel-event-btn" class="bg-transparent border border-[var(--border)] text-[var(--text-primary)] font-bold py-2 px-4 rounded-lg hover:bg-[var(--accent)]">Cancelar</button>
+                    <button type="submit" class="bg-[var(--primary)] text-[var(--primary-foreground)] font-bold py-2 px-4 rounded-lg hover:opacity-90">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+
+    function saveState() {
+        localStorage.setItem('studyHubState', JSON.stringify(state));
+    }
+
+    function loadState() {
+        const savedState = localStorage.getItem('studyHubState');
+        if (savedState) {
+            return JSON.parse(savedState);
+        }
+        // Return default state if nothing is saved
+        return {
+            tasks: [
+                { id: 1, name: 'Ensayo sobre la Revolución Industrial', subject: 'Historia', dueDate: '2025-09-22', completed: false },
+                { id: 2, name: 'Resolver guía de Cálculo Diferencial', subject: 'Matemáticas', dueDate: '2025-09-25', completed: true },
+                { id: 3, name: 'Preparar presentación de Química Orgánica', subject: 'Química', dueDate: '2025-09-28', completed: false },
+            ],
+            events: [
+                { id: 1, title: 'Examen Parcial de Historia', date: '2025-09-23', type: 'examen' },
+                { id: 2, title: 'Entrega Final de Proyecto de Programación', date: '2025-10-02', type: 'entrega' },
+            ],
+            subjects: [
+                { 
+                    id: 1, 
+                    name: 'Historia', 
+                    grades: [
+                        { id: 1, name: 'Examen 1', score: 85 }, 
+                        { id: 2, name: 'Ensayo', score: 92 }
+                    ] 
+                },
+                { 
+                    id: 2, 
+                    name: 'Matemáticas', 
+                    grades: [
+                        { id: 3, name: 'Tarea 1', score: 100 }, 
+                        { id: 4, name: 'Examen Parcial', score: 78 }
+                    ]
+                }
+            ]
+        };
+    }
+
+    function applyTheme(theme) {
+        document.documentElement.setAttribute('data-theme', theme);
+        localStorage.setItem('studyHubTheme', theme);
+        renderAnalysis(); // Re-render chart with new theme colors
+    }
+
+    let state = loadState();
+
+    let currentDate = new Date(); // Use today's date
+    let gradesChartInstance = null;
+
+    const sections = document.querySelectorAll('.content-section');
+    const navItems = document.querySelectorAll('.nav-item');
+    const taskModal = document.getElementById('task-modal');
+    const taskForm = document.getElementById('task-form');
+    const eventModal = document.getElementById('event-modal');
+    const eventForm = document.getElementById('event-form');
+    const navMenu = document.getElementById('nav-menu');
+
+    function showSection(sectionId) {
+        sections.forEach(section => {
+            section.classList.toggle('hidden', section.id !== sectionId);
+        });
+        navItems.forEach(item => {
+            item.classList.toggle('active', item.dataset.section === sectionId);
+        });
+    }
+
+    function renderAll() {
+        renderTasks();
+        renderCalendar();
+        renderSubjects();
+        renderDashboard();
+        renderAnalysis();
+    }
+
+    function renderDashboard() {
+        const upcomingTasksList = document.getElementById('upcoming-tasks-list');
+        const nextExamInfo = document.getElementById('next-exam-info');
+        const generalAverageEl = document.getElementById('general-average');
+        const today = new Date();
+        today.setHours(0,0,0,0);
+
+        const upcomingTasks = state.tasks
+            .filter(t => !t.completed && new Date(t.dueDate + 'T00:00:00') >= today)
+            .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
+            .slice(0, 5);
+
+        if(upcomingTasks.length > 0) {
+            upcomingTasksList.innerHTML = upcomingTasks.map(task => `
+                <div class="flex items-center justify-between p-3 bg-[var(--accent)] rounded-lg">
+                    <div>
+                        <p class="font-semibold">${task.name}</p>
+                        <p class="text-sm text-[var(--text-secondary)]">${task.subject} - Vence: ${new Date(task.dueDate + 'T00:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}</p>
+                    </div>
+                    <span class="text-xs font-medium px-2 py-1 rounded-full bg-blue-100 text-blue-800">Pendiente</span>
+                </div>
+            `).join('');
+        } else {
+            upcomingTasksList.innerHTML = `<p class="text-[var(--text-secondary)]">¡Felicidades! No tienes tareas próximas.</p>`;
+        }
+
+        const nextExam = state.events
+            .filter(e => e.type === 'examen' && new Date(e.date + 'T00:00:00') >= today)
+            .sort((a,b) => new Date(a.date) - new Date(b.date))[0];
+
+        if(nextExam) {
+            nextExamInfo.innerHTML = `
+                <p class="text-lg font-medium">${nextExam.title}</p>
+                <p class="text-[var(--text-secondary)]">${new Date(nextExam.date + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+            `;
+        } else {
+            nextExamInfo.innerHTML = `<p class="text-[var(--text-secondary)]">No hay exámenes programados.</p>`;
+        }
+
+        let totalScore = 0;
+        let totalGrades = 0;
+        state.subjects.forEach(subject => {
+            subject.grades.forEach(grade => {
+                totalScore += grade.score;
+                totalGrades++;
+            });
+        });
+
+        const generalAverage = totalGrades > 0 ? (totalScore / totalGrades).toFixed(2) : 'N/A';
+        generalAverageEl.textContent = generalAverage;
+    }
+
+    function renderTasks() {
+        const taskListContainer = document.getElementById('task-list');
+        if (state.tasks.length === 0) {
+            taskListContainer.innerHTML = '<p class="text-center text-[var(--text-secondary)] py-8">Aún no has añadido ninguna tarea.</p>';
+            return;
+        }
+
+        const sortedTasks = [...state.tasks].sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate)).sort((a,b) => a.completed - b.completed);
+
+        taskListContainer.innerHTML = `
+            <div class="space-y-4">
+                ${sortedTasks.map(task => `
+                    <div class="task-item ${task.completed ? 'completed' : ''} flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 border border-[var(--border)] rounded-lg hover:shadow-md transition-shadow gap-3">
+                        <div class="flex items-center gap-4 flex-grow">
+                            <input type="checkbox" class="task-checkbox h-5 w-5 rounded text-[var(--primary)] focus:ring-[var(--primary)] flex-shrink-0 mt-1 sm:mt-0" data-id="${task.id}" ${task.completed ? 'checked' : ''}>
+                            <div>
+                                <p class="font-semibold text-lg">${task.name}</p>
+                                <p class="text-sm text-[var(--text-secondary)]">${task.subject} | Vence: ${new Date(task.dueDate + 'T00:00:00').toLocaleDateString()}</p>
+                            </div>
+                        </div>
+                        <div class="flex gap-2 self-end sm:self-center">
+                             <button class="edit-task-btn p-2 rounded-md hover:bg-[var(--accent)]" data-id="${task.id}">✏️</button>
+                             <button class="delete-task-btn p-2 rounded-md hover:bg-[var(--accent)]" data-id="${task.id}">🗑️</button>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+
+    function renderCalendar() {
+        const calendarBody = document.getElementById('calendar-body');
+        const monthYearEl = document.getElementById('month-year');
+
+        calendarBody.innerHTML = '';
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth();
+
+        monthYearEl.textContent = currentDate.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+
+        const firstDay = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+        for (let i = 0; i < firstDay; i++) {
+            calendarBody.innerHTML += '<div></div>';
+        }
+
+        for (let day = 1; day <= daysInMonth; day++) {
+            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            const eventsOnDay = state.events.filter(e => e.date === dateStr);
+            const hasEvent = eventsOnDay.length > 0;
+            const today = new Date();
+            const isToday = new Date(year, month, day).toDateString() === today.toDateString();
+
+            let dayClasses = 'calendar-day text-center p-2 rounded-lg cursor-pointer hover:bg-[var(--accent)] transition-colors';
+            if (hasEvent) dayClasses += ' has-event';
+            if (isToday) dayClasses += ' bg-[var(--primary)] text-[var(--primary-foreground)] hover:!bg-[var(--primary)]';
+
+            calendarBody.innerHTML += `<div class="${dayClasses}" data-date="${dateStr}">${day}</div>`;
+        }
+    }
+
+    function renderSubjects() {
+        const container = document.getElementById('subjects-container');
+        if(state.subjects.length === 0) {
+            container.innerHTML = '<p class="text-center text-[var(--text-secondary)] py-8 bg-[var(--card)] rounded-xl shadow-sm border border-[var(--border)]">Aún no has añadido ninguna asignatura.</p>';
+            return;
+        }
+
+        container.innerHTML = state.subjects.map(subject => {
+            const average = subject.grades.length > 0 ? (subject.grades.reduce((acc, grade) => acc + grade.score, 0) / subject.grades.length).toFixed(2) : 'N/A';
+            return `
+                <div class="bg-[var(--card)] rounded-xl shadow-sm overflow-hidden border border-[var(--border)]">
+                    <div class="p-4 border-b border-[var(--border)] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                        <div>
+                            <h4 class="text-xl font-bold">${subject.name}</h4>
+                            <p class="text-[var(--text-secondary)]">Promedio: <span class="font-semibold text-[var(--primary)]">${average}</span></p>
+                        </div>
+                        <div class="flex gap-2 self-end sm:self-center">
+                            <button class="add-grade-btn bg-green-500 text-white text-sm font-bold py-1 px-3 rounded-full hover:bg-green-600" data-subject-id="${subject.id}">+ Añadir Nota</button>
+                            <button class="delete-subject-btn text-[var(--danger)] text-sm font-bold py-1 px-3 rounded-full hover:bg-red-100" data-subject-id="${subject.id}">Eliminar</button>
+                        </div>
+                    </div>
+                    <div class="p-4">
+                        ${subject.grades.length > 0 ? `
+                        <ul class="space-y-2">
+                            ${subject.grades.map(grade => `
+                                <li class="flex justify-between items-center">
+                                    <span>${grade.name}</span>
+                                    <span class="font-semibold">${grade.score}</span>
+                                </li>
+                            `).join('')}
+                        </ul>
+                        ` : '<p class="text-[var(--text-secondary)]">No hay notas registradas.</p>'}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function renderAnalysis() {
+        const ctx = document.getElementById('gradesChart').getContext('2d');
+        const rootStyles = getComputedStyle(document.documentElement);
+        const textColor = rootStyles.getPropertyValue('--text-primary');
+
+        if (gradesChartInstance) {
+            gradesChartInstance.destroy();
+        }
+
+        const allGrades = state.subjects.flatMap(s => s.grades.map(g => g.score));
+
+        const gradeDistribution = {
+            'Reprobado (0-59)': 0,
+            'Suficiente (60-69)': 0,
+            'Regular (70-79)': 0,
+            'Bueno (80-89)': 0,
+            'Excelente (90-100)': 0,
+        };
+
+        allGrades.forEach(score => {
+            if (score <= 59) gradeDistribution['Reprobado (0-59)']++;
+            else if (score <= 69) gradeDistribution['Suficiente (60-69)']++;
+            else if (score <= 79) gradeDistribution['Regular (70-79)']++;
+            else if (score <= 89) gradeDistribution['Bueno (80-89)']++;
+            else gradeDistribution['Excelente (90-100)']++;
+        });
+
+        gradesChartInstance = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: Object.keys(gradeDistribution),
+                datasets: [{
+                    label: 'Distribución de Calificaciones',
+                    data: Object.values(gradeDistribution),
+                    backgroundColor: ['#EF4444', '#F97316', '#EAB308', '#22C55E', '#3B82F6'],
+                    borderColor: rootStyles.getPropertyValue('--card'),
+                    borderWidth: 2,
+                    hoverOffset: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            color: textColor,
+                            padding: 15,
+                        }
+                    },
+                    title: {
+                        display: true,
+                        text: 'Distribución de Calificaciones',
+                        color: textColor,
+                        font: {
+                            size: 18
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function openTaskModal(taskId = null) {
+        const title = document.getElementById('task-modal-title');
+        taskForm.reset();
+        document.getElementById('task-id').value = '';
+
+        if (taskId) {
+            const task = state.tasks.find(t => t.id === taskId);
+            title.textContent = 'Editar Tarea';
+            document.getElementById('task-id').value = task.id;
+            document.getElementById('task-name').value = task.name;
+            document.getElementById('task-subject').value = task.subject;
+            document.getElementById('task-due-date').value = task.dueDate;
+        } else {
+            title.textContent = 'Añadir Nueva Tarea';
+        }
+        taskModal.classList.add('is-open');
+    }
+
+    function closeTaskModal() {
+        taskModal.classList.remove('is-open');
+    }
+
+    function openEventModal(date = null) {
+        eventForm.reset();
+        if(date) {
+             document.getElementById('event-date').value = date;
+        }
+        eventModal.classList.add('is-open');
+    }
+
+    function closeEventModal() {
+        eventModal.classList.remove('is-open');
+    }
+
+
+    document.getElementById('nav-menu').addEventListener('click', (e) => {
+        const link = e.target.closest('a');
+        if (link && link.dataset.section) {
+            e.preventDefault();
+            const sectionId = link.dataset.section;
+            showSection(sectionId);
+            // Close mobile menu on selection
+            if (window.innerWidth < 768) {
+                navMenu.classList.add('hidden');
+            }
+        }
+    });
+
+    document.getElementById('mobile-menu-button').addEventListener('click', () => {
+        navMenu.classList.toggle('hidden');
+    });
+
+    document.getElementById('add-task-btn').addEventListener('click', () => openTaskModal());
+    document.getElementById('cancel-task-btn').addEventListener('click', closeTaskModal);
+
+    taskForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const id = document.getElementById('task-id').value;
+        const taskData = {
+            name: document.getElementById('task-name').value,
+            subject: document.getElementById('task-subject').value,
+            dueDate: document.getElementById('task-due-date').value,
+        };
+
+        if (id) {
+            const index = state.tasks.findIndex(t => t.id == id);
+            state.tasks[index] = { ...state.tasks[index], ...taskData };
+        } else {
+            taskData.id = Date.now();
+            taskData.completed = false;
+            state.tasks.push(taskData);
+        }
+        saveState();
+        closeTaskModal();
+        renderAll();
+    });
+
+    document.getElementById('task-list').addEventListener('click', e => {
+        const target = e.target;
+        if(target.classList.contains('task-checkbox')) {
+            const taskId = parseInt(target.dataset.id);
+            const task = state.tasks.find(t => t.id === taskId);
+            task.completed = target.checked;
+            saveState();
+            renderTasks();
+            renderDashboard();
+        } else if (target.closest('.edit-task-btn')) {
+            openTaskModal(parseInt(target.closest('.edit-task-btn').dataset.id));
+        } else if (target.closest('.delete-task-btn')) {
+            const taskId = parseInt(target.closest('.delete-task-btn').dataset.id);
+            state.tasks = state.tasks.filter(t => t.id !== taskId);
+            saveState();
+            renderAll();
+        }
+    });
+
+    document.getElementById('prev-month').addEventListener('click', () => {
+        currentDate.setMonth(currentDate.getMonth() - 1);
+        renderCalendar();
+    });
+
+    document.getElementById('next-month').addEventListener('click', () => {
+        currentDate.setMonth(currentDate.getMonth() + 1);
+        renderCalendar();
+    });
+
+    document.getElementById('add-event-btn').addEventListener('click', () => openEventModal());
+    document.getElementById('cancel-event-btn').addEventListener('click', closeEventModal);
+
+    document.getElementById('calendar-body').addEventListener('click', e => {
+        if(e.target.classList.contains('calendar-day')) {
+            const date = e.target.dataset.date;
+            openEventModal(date);
+        }
+    });
+
+    eventForm.addEventListener('submit', e => {
+        e.preventDefault();
+        const newEvent = {
+            id: Date.now(),
+            title: document.getElementById('event-title').value,
+            date: document.getElementById('event-date').value,
+            type: document.getElementById('event-type').value,
+        };
+        state.events.push(newEvent);
+        saveState();
+        closeEventModal();
+        renderAll();
+    });
+
+    document.getElementById('add-subject-btn').addEventListener('click', () => {
+        const name = prompt('Nombre de la nueva asignatura:');
+        if(name) {
+            state.subjects.push({ id: Date.now(), name, grades: [] });
+            saveState();
+            renderAll();
+        }
+    });
+
+    document.getElementById('subjects-container').addEventListener('click', e => {
+        const addBtn = e.target.closest('.add-grade-btn');
+        const deleteBtn = e.target.closest('.delete-subject-btn');
+
+        if(addBtn) {
+            const subjectId = parseInt(addBtn.dataset.subjectId);
+            const gradeName = prompt('Descripción de la calificación (Ej: Examen 1):');
+            const gradeScoreStr = prompt('Calificación (0-100):');
+
+            if(gradeName && gradeScoreStr) {
+                const gradeScore = parseFloat(gradeScoreStr);
+                if (!isNaN(gradeScore) && gradeScore >= 0 && gradeScore <= 100) {
+                    const subject = state.subjects.find(s => s.id === subjectId);
+                    subject.grades.push({ id: Date.now(), name: gradeName, score: gradeScore });
+                    saveState();
+                    renderAll();
+                } else {
+                    alert('Por favor, introduce una calificación válida entre 0 y 100.');
+                }
+            }
+        } else if (deleteBtn) {
+            const subjectId = parseInt(deleteBtn.dataset.subjectId);
+            if(confirm('¿Estás seguro de que quieres eliminar esta asignatura y todas sus notas?')) {
+                state.subjects = state.subjects.filter(s => s.id !== subjectId);
+                saveState();
+                renderAll();
+            }
+        }
+    });
+
+    document.querySelectorAll('.theme-btn').forEach(button => {
+        button.addEventListener('click', () => {
+            applyTheme(button.dataset.theme);
+        });
+    });
+
+    // Initial Load
+    const savedTheme = localStorage.getItem('studyHubTheme') || 'light';
+    applyTheme(savedTheme);
+    renderAll();
+});
+</script>
+</body>
+</html>
+
